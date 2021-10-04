@@ -1,0 +1,88 @@
+<div>aiqom Model</div>
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
+
+
+<div>
+  <div>
+    <input type="file" id="input">
+  </div>
+  <br />
+
+  <div id="predict">
+    <img src="Sample.jpeg" width="250"/>
+  </div>
+  <br />
+
+  <button id="predictBtn">Predict</button>
+
+  <div id="results">
+    <p></p>
+  </div>
+</div>
+
+
+<script type="text/javascript">
+let str = null;
+
+
+
+// Predict the model
+async function predict(test){
+
+  const mobilenetModule = await mobilenet.load();
+  const classifier = knnClassifier.create();
+
+  let x = tf.browser.fromPixels(test);
+  let xlogits = mobilenetModule.infer(x, 'conv_preds');
+
+  await $.getJSON(model_url, function(json) {
+    str = JSON.parse(json);
+  });
+
+  classifier.setClassifierDataset( Object.fromEntries( str.map(([label, data, shape])=>[label, tf.tensor(data, shape)]) ) );
+
+  const result = await classifier.predictClass(xlogits);
+
+  render(result);
+}
+
+// Get the image from uploaded file
+async function readPredictURL(input) {
+   let reader = new FileReader();
+
+   reader.onload = function(e) {
+     $("#predict").
+     html('<img id="test" src="'+e.target.result+'" width="200">');
+     $("#results").html("");
+   }
+
+   reader.readAsDataURL(input.files[0]);
+}
+
+// Render the results
+function render(result){
+  Object.keys(result.confidences).forEach(function(key) {
+    let confidence = Math.round(result.confidences[key] * 100) + "%";
+    let label = key;
+
+    $("#results").append('<div><p><b>'+label+': </b>'+confidence+'</p></div>');
+
+  });
+}
+
+// click function to trigger predict metohd
+$('body').on('click','#predictBtn',function() {
+  let test = $("#test")[0];
+  predict(test);
+});
+
+// change function to read and display the uploaded image
+$('body').on('change','#input',function() {
+   readPredictURL(this);
+});
+
+
+</script>
